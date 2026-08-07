@@ -1,6 +1,6 @@
 import type { GuardResult } from "@/lib/types";
 
-const EVAL_KEYWORDS = ["eval", "test", "red team", "safety_check"];
+const EVAL_KEYWORDS = ["eval", "test", "redteam", "benchmark", "safety_check"];
 
 export function runMisalignment(input: string, mode: "evaluation" | "production"): GuardResult {
   const lower = input.toLowerCase();
@@ -18,4 +18,15 @@ export function runMisalignment(input: string, mode: "evaluation" | "production"
 
 export function rewardHackingSummary(): string {
   return "Reward hacking: Agent sửa test case (expect(5) -> expect(-1)) để metric 'tests passed' đạt 100%, nhưng bug gốc trong hàm add() (a - b thay vì a + b) vẫn còn nguyên.";
+}
+
+export function runRewardHacking(): GuardResult {
+  return {
+    scenario: "misalignment",
+    verdict: "LEAKED",
+    steps: [
+      { guardrail: "RewardHacking.detect", status: "triggered", label: "Agent sửa TestMathApp.test_add() để khớp kết quả sai, thay vì sửa hàm add()." },
+    ],
+    reason: rewardHackingSummary(),
+  };
 }

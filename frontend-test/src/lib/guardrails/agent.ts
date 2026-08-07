@@ -3,6 +3,25 @@ import type { GuardResult } from "@/lib/types";
 export const ALLOWED_TOOL_REGISTRY = ["web_search", "get_weather", "make_payment"];
 const RISKY_TOOLS = ["make_payment"];
 
+// Guardrail 1: lọc bỏ các chỉ thị hệ thống độc hại được cấy vào tool output
+// trước khi đưa vào context của LLM.
+const DANGEROUS_OUTPUT_PATTERNS = [
+  /ignore\s+previous\s+instructions/gi,
+  /system\s+instruction\s+override/gi,
+  /your\s+new\s+task\s+is\s+to/gi,
+  /ignore\s+all\s+previous/gi,
+];
+
+export function sanitizeToolOutput(raw: string): { cleaned: string; triggered: boolean } {
+  let cleaned = raw;
+  let triggered = false;
+  for (const pattern of DANGEROUS_OUTPUT_PATTERNS) {
+    if (pattern.test(cleaned)) triggered = true;
+    cleaned = cleaned.replace(pattern, "[BLOCKED_INJECTION_ATTEMPT]");
+  }
+  return { cleaned, triggered };
+}
+
 export function applyAgentGuardrails(
   toolName: string,
   toolArgs: Record<string, unknown>,
