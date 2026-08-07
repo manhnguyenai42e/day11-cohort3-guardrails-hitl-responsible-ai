@@ -21,7 +21,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const prefix = await askGeminiForToolCall(input, toxic ? "high" : "normal");
+  let prefix;
+  try {
+    prefix = await askGeminiForToolCall(input, toxic ? "high" : "normal");
+  } catch (e: any) {
+    return NextResponse.json({ scenario: "agent-security", verdict: "SAFE", steps: [], reason: String(e.message).includes("NO_API_KEY") ? "Thiếu GEMINI_API_KEY." : "Lỗi Gemini." });
+  }
   if (!prefix) {
     return NextResponse.json({ scenario: "agent-security", verdict: "SAFE", steps: [], reason: "Agent chọn không gọi tool nguy hiểm." });
   }
