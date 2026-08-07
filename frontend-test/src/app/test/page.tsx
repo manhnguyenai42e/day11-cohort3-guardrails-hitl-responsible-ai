@@ -60,14 +60,14 @@ type TraceEntry = {
   error?: string;
 };
 
-function buildBody(scenario: Scenario, input: string): Record<string, unknown> {
+function buildBody(scenario: Scenario, input: string, misalignMode: "evaluation" | "production"): Record<string, unknown> {
   switch (scenario) {
     case "direct":
       return { input };
     case "indirect":
       return { input };
     case "misalignment":
-      return { input, mode: "evaluation" };
+      return { input, mode: misalignMode };
     case "agent":
       return { input, guard: true, toxic: true };
   }
@@ -76,6 +76,7 @@ function buildBody(scenario: Scenario, input: string): Record<string, unknown> {
 export default function TestPage() {
   const [scenario, setScenario] = useState<Scenario>("direct");
   const [input, setInput] = useState("");
+  const [misalignMode, setMisalignMode] = useState<"evaluation" | "production">("evaluation");
   const [runs, setRuns] = useState<TraceEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
@@ -97,7 +98,7 @@ export default function TestPage() {
       const res = await fetch(`/api/${activeScenario}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildBody(activeScenario, value)),
+        body: JSON.stringify(buildBody(activeScenario, value, misalignMode)),
       });
       const data: GuardResult = await res.json();
       if (!res.ok) {
@@ -136,8 +137,9 @@ export default function TestPage() {
     }
   }
 
-  const lastEntry = [...runs].reverse().find((t) => t.result);
-  const lastRun = lastEntry && lastEntry.result ? { input: lastEntry.input, result: lastEntry.result } : null;
+  const auditEntries = runs
+    .filter((t) => t.result)
+    .map((t) => ({ scenario: t.scenario, input: t.input, result: t.result as GuardResult }));
 
   return (
     <div
@@ -332,23 +334,43 @@ export default function TestPage() {
 
             <div className={cn("border-t px-4 py-3", darkMode ? "border-slate-700/60 bg-[#1E293B]" : "border-[#E2E8F0] bg-white")}>
               <div className="max-w-[720px] mx-auto">
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {PRESETS[scenario].map((p) => (
-                    <button
-                      key={p.label}
-                      onClick={() => run(p.input)}
-                      disabled={loading}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
-                        darkMode
-                          ? "bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500/50 hover:text-indigo-300"
-                          : "bg-slate-50 border-[#E2E8F0] text-[#64748B] hover:border-indigo-300 hover:text-indigo-600"
-                      )}
-                    >
-                      <Send className="w-3 h-3" />
-                      {p.label}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center justify-between gap-1.5 mb-3">
+                  {scenario === "misalignment" && (
+                    <div className="inline-flex items-center gap-1 p-1 rounded-full border border-slate-200 dark:border-slate-700">
+                      {(["evaluation", "production"] as const).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setMisalignMode(m)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                            misalignMode === m
+                              ? "bg-indigo-600 text-white"
+                              : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                          )}
+                        >
+                          {m === "evaluation" ? "Môi trường đánh giá" : "Môi trường sản xuất"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESETS[scenario].map((p) => (
+                      <button
+                        key={p.label}
+                        onClick={() => run(p.input)}
+                        disabled={loading}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                          darkMode
+                            ? "bg-slate-800 border-slate-700 text-slate-300 hover:border-indigo-500/50 hover:text-indigo-300"
+                            : "bg-slate-50 border-[#E2E8F0] text-[#64748B] hover:border-indigo-300 hover:text-indigo-600"
+                        )}
+                      >
+                        <Send className="w-3 h-3" />
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className={cn(
@@ -391,7 +413,7 @@ export default function TestPage() {
             className={cn("w-[300px] shrink-0 border-l flex flex-col overflow-y-auto", darkMode ? "bg-[#1E293B] border-slate-700/60" : "bg-white border-[#E2E8F0]")}
             style={{ scrollbarWidth: "none" }}
           >
-            <AuditPanel darkMode={darkMode} lastRun={lastRun} />
+            <AuditPanel darkMode={darkMode} entries={auditEntries} />
           </aside>
         </div>
       </div>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-indigo-500: #1f649f;
   --color-indigo-600: #124f8c;

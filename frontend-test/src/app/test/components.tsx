@@ -160,29 +160,38 @@ export function HITLCard({
 
 export function AuditPanel({
   darkMode,
-  lastRun,
+  entries,
 }: {
   darkMode: boolean;
-  lastRun: { input: string; result: GuardResult } | null;
+  entries: { scenario: string; input: string; result: GuardResult }[];
 }) {
   const cardCls = cn("rounded-xl border p-4 mb-3", darkMode ? "bg-slate-800/60 border-slate-700/60" : "bg-slate-50 border-[#E2E8F0]");
   const labelCls = cn("text-xs font-semibold uppercase tracking-wide mb-3", darkMode ? "text-slate-500" : "text-[#94A3B8]");
   const subCls = cn("text-xs", darkMode ? "text-slate-500" : "text-[#64748B]");
 
+  const lastResult = entries[entries.length - 1]?.result;
+  const auditEntries: { status: "blocked" | "triggered"; label: string }[] = [];
+  for (const e of entries) {
+    for (const s of e.result.steps) {
+      if (s.status !== "pass") auditEntries.push({ status: s.status, label: `${s.guardrail}: ${s.label}` });
+    }
+    for (const a of e.result.audit ?? []) auditEntries.push({ status: "triggered", label: a });
+  }
+
   return (
     <div className="p-4 flex flex-col min-h-full">
       <div className={cardCls}>
         <div className={labelCls}>Kết quả lần chạy gần nhất</div>
-        {lastRun ? (
+        {lastResult ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              {lastRun.result.verdict && <VerdictBadge verdict={lastRun.result.verdict} darkMode={darkMode} />}
+              <VerdictBadge verdict={lastResult.verdict} darkMode={darkMode} />
             </div>
             <p className={cn("text-xs leading-relaxed", darkMode ? "text-slate-400" : "text-[#64748B]")}>
-              {lastRun.result.reason}
+              {lastResult.reason}
             </p>
             <div className={cn("rounded-lg p-2.5 text-xs font-mono break-words", darkMode ? "bg-slate-900/50 text-slate-400" : "bg-white border border-[#E2E8F0] text-[#64748B]")}>
-              {lastRun.input}
+              {entries[entries.length - 1]?.input}
             </div>
           </div>
         ) : (
@@ -191,18 +200,22 @@ export function AuditPanel({
       </div>
 
       <div className={cardCls}>
-        <div className={labelCls}>Nhật ký kiểm toán (audit)</div>
-        {lastRun?.result.audit && lastRun.result.audit.length > 0 ? (
+        <div className={labelCls}>Nhật ký kiểm toán (audit log)</div>
+        {auditEntries.length > 0 ? (
           <div className="space-y-1.5">
-            {lastRun.result.audit.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span className={darkMode ? "text-slate-300" : "text-slate-700"}>{a}</span>
+            {auditEntries.map((a, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                {a.status === "blocked" ? (
+                  <ShieldX className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                )}
+                <span className={darkMode ? "text-slate-300" : "text-slate-700"}>{a.label}</span>
               </div>
             ))}
           </div>
         ) : (
-          <div className={subCls}>Không có guardrail nào ghi audit ở lần chạy này.</div>
+          <div className={subCls}>Chưa có guardrail nào bị kích hoạt.</div>
         )}
       </div>
 
